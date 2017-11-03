@@ -1,5 +1,5 @@
 Ping our test server
 
 ```
-playbooks/.vagrant/machines/default/virtualbox/vagrant_cwd
+ansible testserver -i hosts -m ping
 ```
