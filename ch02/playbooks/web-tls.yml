@@ -1,0 +1,69 @@
+---
+- name: Configure webserver with nginx and tls
+  hosts: webservers
+  become:   True
+  vars:
+    key_file: /etc/nginx/ssl/nginx.key
+    cert_file: /etc/nginx/ssl/nginx.crt
+    conf_file: /etc/nginx/conf.d/ssl.conf
+    server_name: localhost
+  tasks:
+    - name: Install the libselinux-python package
+      yum: >
+        name=libselinux-python
+        update_cache=yes
+        state=present
+
+    - name: Disable SELinux
+      selinux: state=disabled
+
+    - name: install EPEL Release
+      yum: >
+        name=epel-release
+        update_cache=yes
+        state=present
+
+    - name: install nginx
+      yum: >
+        name=nginx
+        update_cache=yes
+        state=present
+
+    - name: Create target directories
+      file: path="{{ item }}" state=directory mode=0755
+      with_items:
+        - /etc/nginx/ssl
+        - /etc/nginx/sites-available
+        - /etc/nginx/sites-enabled
+        - /usr/share/nginx/html
+
+    - name: copy TLS key
+      copy: >
+        src=files/nginx.key
+        dest={{ key_file }}
+        owner=root
+        mode=0600
+      notify: restart nginx
+
+    - name: copy TLS certificate
+      copy: src=files/nginx.crt dest={{ cert_file }}
+      notify: restart nginx
+
+    - name: copy nginx config file
+      template: src=templates/nginx.conf.j2 dest={{ conf_file }}
+      notify: restart nginx
+
+    - name: available configuration
+      file: dest=/etc/nginx/sites-available/default src={{ conf_file }} state=link
+      notify: restart nginx
+
+    - name: enable configuration
+      file: dest=/etc/nginx/sites-enabled/default src={{ conf_file }} state=link
+      notify: restart nginx
+
+    - name: copy index.html
+      template: src=templates/index.html.j2 dest=/usr/share/nginx/html/index.html mode=0644
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted

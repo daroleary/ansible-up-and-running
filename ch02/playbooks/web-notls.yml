@@ -1,0 +1,47 @@
+---
+- name: Configure webserver with nginx
+  hosts: webservers
+  become:   True
+  tasks:
+    - name: Install the libselinux-python package
+      yum: >
+        name=libselinux-python
+        update_cache=yes
+        state=present
+
+    - name: Disable SELinux
+      selinux: state=disabled
+
+    - name: install EPEL Release
+      yum: >
+        name=epel-release
+        update_cache=yes
+        state=present
+
+    - name: install nginx
+      yum: >
+        name=nginx
+        update_cache=yes
+        state=present
+
+    - name: Create target directories
+      file: path="{{ item }}" state=directory mode=0755
+      with_items:
+        - /etc/nginx/sites-available
+        - /etc/nginx/sites-enabled
+        - /usr/share/nginx/html
+
+    - name: copy nginx config file
+      copy: src=files/nginx.conf dest=/etc/nginx/sites-available/default
+
+    - name: enable configuration
+      file: >
+        dest=/etc/nginx/sites-enabled/default
+        src=/etc/nginx/sites-available/default
+        state=link
+
+    - name: copy index.html
+      template: src=templates/index.html.j2 dest=/usr/share/nginx/html/index.html mode=0644
+
+    - name: restart nginx
+      service: name=nginx state=restarted
